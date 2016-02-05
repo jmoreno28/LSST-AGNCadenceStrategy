@@ -3,39 +3,77 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from scipy import stats
+import sys
 
 
 
-connection = sqlite3.connect("enigma_1189_sqlite.db")
-cursor = connection.cursor()
-cursor.execute("select fieldID,expMJD,night,lst from summary where filter = 'g' order by fieldID")
-#count rows = 249383
-data = cursor.fetchall()
-data = np.array(data)
-w1 = np.where((data[:,0] == 1000))[0]
-w2 = np.where((data[:,0] == 1003))[0]
-w3 = np.where((data[:,0] == 3000))[0]
-print(len(w1),len(w2),len(w3))
-# save file?
-print(data[:,0].shape)
-data_med = data[w1,:]
-visits1 = np.arange(1, len(data_med)+1,1)
-#print (visits.shape,data_med[:,1].shape)
-np.savetxt('avgcadence.txt',data_med)
-data_l = np.zeros(shape=data_med.shape)
-data_l = data[w3,:]
-visits2 = np.arange(1, len(data_l)+1,1)
-#l, h = data[:,0],data[:,0]
-#bins = np.arange(l, h, 1)
-#(n, bins, patches)  = plt.hist(data[:,0], h)
 
-#(count, ll, binsize,extrapoints) = scipy.stats.histogram(data[:,0], h)
-plt.plot(data_med[:,1],visits1, 'k.')
-plt.plot(data_l[:,1],visits2, 'b.')
-plt.ylabel('number of visits')
-plt.xlabel('MJD')
-#plt.show()
-plt.savefig('example_cadences.png')
+
+connection = None
+
+try:            
+	connection = sqlite3.connect("enigma_1189_sqlite.db")
+	cursor = connection.cursor()
+	
+	
+#	bin fieldIDs to find deep drilling field
+	cursor.execute("select distinct fieldID, count(fieldID)  from summary where filter = 'g' or filter = 'r' group by fieldID order by fieldID")
+
+	#Only use in conjunction with binning execute statement
+	data = cursor.fetchall()
+	data = np.array(data)
+	ddfs = np.argmax(data[:,1])
+	print ddfs, data[ddfs]
+	#plt.plot(data[:,0],data[:,1])
+	#plt.savefig('nvisits_enigma.png')
+
+#	check out only g and r bands
+	cursor.execute("select fieldID,expMJD,night,lst,visitExpTime from summary where filter = 'g' or filter = 'r'  order by fieldID")
+
+
+	#count rows = 249383
+	data = cursor.fetchall()
+	data = np.array(data)
+	
+
+	
+	w1 = np.where((data[:,0] == 1000))[0]
+	w2 = np.where((data[:,0] == ddfs+1))[0]
+
+
+	#print(data[:,0].shape)
+	data_std = data[w1,:]
+	data_ddf= data[w2,:]
+	np.savetxt('gandrbands_enigma1189std.txt',data_std)
+	np.savetxt('gandrbands_enigma1189ddf.txt',data_ddf)
+	
+#	checkout all rows- all bands
+	cursor.execute("select fieldID,expMJD,night,lst,visitExpTime from summary order by fieldID")
+	data = cursor.fetchall()
+	data = np.array(data)
+	w1 = np.where((data[:,0] == 1000))[0]
+	w2 = np.where((data[:,0] == ddfs+1))[0]
+	#ddfs = np.argmax(data)
+	#print ddfs, data[ddfs]
+
+	#print(data[:,0].shape)
+	data_std = data[w1,:]
+	data_ddf= data[w2,:]
+	np.savetxt('allbands_enigma1189std.txt',data_std)
+	np.savetxt('allbands_enigma1189ddf.txt',data_ddf)
+    
+        
+    
+except sqlite3.Error, e:
+    
+    print "Error %s:" % e.args[0]
+    sys.exit(1)
+    
+finally:
+    
+    if connection:
+        connection.close()
+
 
 
 
